@@ -1,0 +1,13 @@
+.venv/
+build/
+dist/
+*.pyc
+__pycache__/
+.env
+output/
+new_data/
+data/
+*.zip
+*.rar
+*.csv
+*.xlsx
