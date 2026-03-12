@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflow Temperature Prediction System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            transform: scale(0.67);
+            transform-origin: top left;
+            width: 133.33%;
+        }
+        .container { max-width: 1600px; margin: 0 auto; max-height: 100vh;}
+        .header { text-align: center; color: white; margin-bottom: 30px; animation: fadeInDown 0.8s ease; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .main-content { display: grid; grid-template-columns: 800px 1fr; gap: 25px; animation: fadeIn 1s ease; }
+        .input-panel { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .form-container { display: grid; grid-template-columns: 1fr 1fr; gap: 35px; margin-bottom: 0px; }
+        .input-section h2, .input-section h3 {
+            color: #667eea; margin-bottom: 25px; font-size: 1.5em;
+            border-bottom: 3px solid #667eea; padding-bottom: 10px; margin-top: 0;
+        }
+        .input-section h3 { color: #764ba2; font-size: 1.3em; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; font-size: 0.9em; }
+        .form-group input {
+            width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 1em; transition: all 0.3s ease;
+        }
+        .form-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .unit { font-size: 0.85em; color: #666; margin-left: 5px; }
+        .actual-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn-predict {
+            width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px; font-size: 1.1em;
+            font-weight: 600; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; margin-top: 10px;
+        }
+        .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        .result-panel { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .result-panel h2 {
+            color: #667eea; margin-bottom: 25px; font-size: 1.5em;
+            border-bottom: 3px solid #667eea; padding-bottom: 10px;
+        }
+        .result-panel h3 { color: #667eea; margin-bottom: 15px; }
+        .chart-container { position: relative; height: 350px; margin-bottom: 30px; }
+        .temperature-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px; margin-top: 20px;
+        }
+        .zone-card {
+            padding: 15px; border-radius: 10px; text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .zone-card:hover { transform: scale(1.05); box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
+        .zone-number { font-weight: 600; color: rgba(0,0,0,0.9); margin-bottom: 5px; font-size: 0.9em; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        .zone-temp { font-size: 1.5em; font-weight: bold; color: rgba(220,0,0,0.9); text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+        /* NEW: Style for the actual temperature display inside the card */
+        .zone-temp-actual {
+            font-size: 0.95em; font-weight: 600; color: rgba(255, 255, 255, 0.9);
+            margin-top: 8px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .loading { display: none; text-align: center; padding: 40px; }
+        .loading.active { display: block; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%;
+            width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto;
+        }
+        .error-message {
+            background: #ff4444; color: white; padding: 15px; border-radius: 8px;
+            margin-top: 20px; display: none;
+        }
+        .error-message.active { display: block; }
+        
+        /* NEW: Styles for deviation analysis section */
+        .deviation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+        }
+        .deviation-card {
+            background: #f4f4f9; padding: 15px; border-radius: 10px;
+            text-align: center; border-left: 5px solid #ccc;
+        }
+        .deviation-value { font-size: 1.4em; font-weight: bold; }
+        .average-deviation {
+            background: #f4f4f9; padding: 20px; border-radius: 10px; text-align: center;
+            margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            font-size: 1.2em; border-left: 5px solid #667eea;
+        }
+        .average-deviation strong { font-size: 1.5em; margin-left: 10px; }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 1400px) { .main-content { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+            .form-container { grid-template-columns: 1fr; }
+            .temperature-grid, .deviation-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 Reflow Temperature Prediction System</h1>
+            <p>Advanced Temperature Profile Analysis for PCB Manufacturing</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-panel">
+                <form id="predictionForm">
+                    <div class="form-container">
+                        <div class="input-section">
+                            <h2>📋 Product Specifications</h2>
+                            <div class="form-group"><label>BOT <span class="unit">(pcs)</span></label><input type="number" id="bot" step="any" required value="1.5"></div>
+                            <div class="form-group"><label>TOP <span class="unit">(pcs)</span></label><input type="number" id="top" step="any" required value="1.5"></div>
+                            <div class="form-group"><label>Panel <span class="unit">(pcs)</span></label><input type="number" id="panel" step="any" required value="2"></div>
+                            <div class="form-group"><label>Length <span class="unit">(mm)</span></label><input type="number" id="length" step="any" required value="250"></div>
+                            <div class="form-group"><label>Width <span class="unit">(mm)</span></label><input type="number" id="width" step="any" required value="200"></div>
+                            <div class="form-group"><label>Height <span class="unit">(mm)</span></label><input type="number" id="height" step="any" required value="15"></div>
+                            <div class="form-group"><label>Fixture <span class="unit">(yes: 1 - no: 0)</span></label><input type="number" id="fixture" step="any" required value="0"></div>
+                            <div class="form-group"><label>Iron Frame <span class="unit">(yes: 1 - no: 0)</span></label><input type="number" id="iron_frame" step="any" required value="0"></div>
+                            <div class="form-group"><label>Speed <span class="unit">(cm/min)</span></label><input type="number" id="speed" step="any" required value="50"></div>
+                        </div>
+                        <div class="input-section">
+                            <h3>🔬 Actual Data (Optional)</h3>
+                            <div class="actual-inputs-grid">
+                                <div class="form-group"><label>Zone 1 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-1" step="any"></div>
+                                <div class="form-group"><label>Zone 2 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-2" step="any"></div>
+                                <div class="form-group"><label>Zone 3 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-3" step="any"></div>
+                                <div class="form-group"><label>Zone 4 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-4" step="any"></div>
+                                <div class="form-group"><label>Zone 5 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-5" step="any"></div>
+                                <div class="form-group"><label>Zone 6 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-6" step="any"></div>
+                                <div class="form-group"><label>Zone 7 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-7" step="any"></div>
+                                <div class="form-group"><label>Zone 8 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-8" step="any"></div>
+                                <div class="form-group"><label>Zone 9 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-9" step="any"></div>
+                                <div class="form-group"><label>Zone 10 <span class="unit">(°C)</span></label><input type="number" id="actual-zone-10" step="any"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-predict">🚀 Predict & Compare Profile</button>
+                    <button type="button" id="btnClear" class="btn-predict" style="background: #ccc; color: #333;">🧹 Clear All</button>
+
+                </form>
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+
+            <div class="result-panel">
+                <h2>📊 Prediction Results</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 15px; color: #666;">Analyzing temperature profile...</p>
+                </div>
+                <div id="resultContent" style="display: none;">
+                    <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+                    
+                    <h3>Predicted Zone Temperatures</h3>
+                    <div class="temperature-grid" id="temperatureGrid"></div>
+                    
+                    <div id="deviationSection" style="display: none;">
+                        <h3 style="margin-top: 30px;">📉 Deviation Analysis</h3>
+                        <div class="deviation-grid" id="deviationGrid"></div>
+                        <div class="average-deviation" id="averageDeviation"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        const API_URL = 'http://localhost:4446/reflow_predict';
+        // 🧹 Nút CLEAR — reset chỉ dữ liệu thực tế & kết quả, giữ nguyên thông số sản phẩm
+        document.getElementById('btnClear').addEventListener('click', () => {
+            // Xóa dữ liệu Actual Zones
+            for (let i = 1; i <= 10; i++) {
+                document.getElementById(`actual-zone-${i}`).value = '';
+            }
+
+            // Ẩn kết quả & lỗi
+            document.getElementById('resultContent').style.display = 'none';
+            document.getElementById('errorMessage').classList.remove('active');
+            document.getElementById('loading').classList.remove('active');
+
+            // Xóa biểu đồ nếu có
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+
+            // Xóa các vùng hiển thị
+            document.getElementById('temperatureGrid').innerHTML = '';
+            document.getElementById('deviationGrid').innerHTML = '';
+            document.getElementById('averageDeviation').innerHTML = '';
+            document.getElementById('deviationSection').style.display = 'none';
+
+            console.log("🧹 Cleared actual data and results, kept product specs.");
+        });
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                bot: parseFloat(document.getElementById('bot').value), top: parseFloat(document.getElementById('top').value),
+                panel: parseFloat(document.getElementById('panel').value), length: parseFloat(document.getElementById('length').value),
+                width: parseFloat(document.getElementById('width').value), height: parseFloat(document.getElementById('height').value),
+                fixture: parseFloat(document.getElementById('fixture').value), iron_frame: parseFloat(document.getElementById('iron_frame').value),
+                speed: parseFloat(document.getElementById('speed').value)
+            };
+            const actualTemperatures = [];
+            for (let i = 1; i <= 10; i++) {
+                const input = document.getElementById(`actual-zone-${i}`);
+                actualTemperatures.push(input.value ? parseFloat(input.value) : null);
+            }
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('resultContent').style.display = 'none';
+            document.getElementById('errorMessage').classList.remove('active');
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData)
+                });
+                if (!response.ok) throw new Error('Prediction failed. Please check your API server.');
+                const result = await response.json();
+                displayResults(result.predicted_temperatures, actualTemperatures);
+            } catch (error)
+            {
+                document.getElementById('errorMessage').textContent = error.message;
+                document.getElementById('errorMessage').classList.add('active');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        });
+
+        function getHeatColor(temp, minTemp, maxTemp) {
+            const normalized = Math.max(0, Math.min(1, (temp - minTemp) / (maxTemp - minTemp)));
+            const r = Math.round(255 * Math.sqrt(normalized));
+            const g = Math.round(255 * (normalized * normalized));
+            const b = Math.round(255 * (Math.sin(normalized * Math.PI / 2) ** 4));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function displayResults(predictedTemps, actualTemps) {
+            document.getElementById('resultContent').style.display = 'block';
+            const minTemp = Math.min(...predictedTemps.filter(t => t !== null));
+            const maxTemp = Math.max(...predictedTemps.filter(t => t !== null));
+
+            const grid = document.getElementById('temperatureGrid');
+            grid.innerHTML = '';
+            predictedTemps.forEach((temp, index) => {
+                const card = document.createElement('div');
+                card.className = 'zone-card';
+                const bgColor = getHeatColor(temp, minTemp, maxTemp);
+                card.style.background = `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}dd 100%)`;
+                let actualTempHTML = actualTemps[index] !== null ? `<div class="zone-temp-actual">Actual: ${actualTemps[index].toFixed(0)}°C</div>` : '';
+                card.innerHTML = `<div class="zone-number">Zone ${index + 1}</div><div class="zone-temp">${temp.toFixed(0)}°C</div>${actualTempHTML}`;
+                grid.appendChild(card);
+            });
+
+            const deviationSection = document.getElementById('deviationSection');
+            const deviationGrid = document.getElementById('deviationGrid');
+            const averageDeviationEl = document.getElementById('averageDeviation');
+            deviationGrid.innerHTML = '';
+            
+            let totalDeviation = 0;
+            let validZoneCount = 0;
+            const hasActualData = actualTemps.some(t => t !== null);
+
+            if (hasActualData) {
+                deviationSection.style.display = 'block';
+                predictedTemps.forEach((predicted, index) => {
+                    const actual = actualTemps[index];
+                    const devCard = document.createElement('div');
+                    devCard.className = 'deviation-card';
+                    
+                    let deviationText = 'N/A';
+                    let deviationColor = '#999';
+
+                    if (actual !== null) {
+                        const deviation = predicted - actual;
+                        totalDeviation += deviation;
+                        validZoneCount++;
+                        
+                        // ### START FIX: Correctly format positive and negative numbers ###
+                        if (deviation > 0) {
+                            deviationText = `+${deviation.toFixed(1)}°C`;
+                        } else { // This handles negative and zero values correctly
+                            deviationText = `${deviation.toFixed(1)}°C`;
+                        }
+                        // ### END FIX ###
+                        
+                        const absDev = Math.abs(deviation);
+                        if (absDev <= 3) deviationColor = '#28a745';      // Green
+                        else if (absDev <= 7) deviationColor = '#ffc107'; // Yellow
+                        else deviationColor = '#dc3545';                  // Red
+                    }
+                    
+                    devCard.style.borderColor = deviationColor;
+                    devCard.innerHTML = `<div class="zone-number">Zone ${index + 1}</div><div class="deviation-value" style="color: ${deviationColor};">${deviationText}</div>`;
+                    deviationGrid.appendChild(devCard);
+                });
+
+                const averageDeviation = validZoneCount > 0 ? totalDeviation / validZoneCount : 0;
+                const avgAbsDev = Math.abs(averageDeviation);
+                const avgColor = avgAbsDev <= 3 ? '#28a745' : (avgAbsDev <= 7 ? '#ffc107' : '#dc3545');
+
+                // ### START FIX: Correctly format average deviation ###
+                let avgDevText;
+                if (averageDeviation > 0) {
+                    avgDevText = `+${averageDeviation.toFixed(2)}°C`;
+                } else {
+                    avgDevText = `${averageDeviation.toFixed(2)}°C`;
+                }
+                averageDeviationEl.innerHTML = `Average Deviation: <strong style="color: ${avgColor};">${avgDevText}</strong>`;
+                // ### END FIX ###
+
+            } else {
+                deviationSection.style.display = 'none';
+            }
+
+            updateChart(predictedTemps, actualTemps);
+        }
+
+        function updateChart(predictedTemps, actualTemps) {
+            const ctx = document.getElementById('temperatureChart').getContext('2d');
+            if (chart) { chart.destroy(); }
+            const zones = Array.from({ length: 10 }, (_, i) => `Zone ${i + 1}`);
+            let datasets = [{
+                label: 'Predicted Profile', data: predictedTemps, borderColor: '#ff6b35',
+                backgroundColor: 'rgba(255, 107, 53, 0.15)', borderWidth: 3, fill: true, tension: 0.4,
+                pointRadius: 8, pointHoverRadius: 10, pointBackgroundColor: predictedTemps.map(temp => getHeatColor(temp, Math.min(...predictedTemps), Math.max(...predictedTemps))),
+                pointBorderColor: '#fff', pointBorderWidth: 3,
+            }];
+            if (actualTemps.some(t => t !== null)) {
+                datasets.push({
+                    label: 'Actual Profile', data: actualTemps, borderColor: '#4bc0c0',
+                    backgroundColor: 'rgba(75, 192, 192, 0.15)', borderWidth: 3, fill: false, tension: 0.4,
+                    pointRadius: 6, pointHoverRadius: 8, pointBackgroundColor: '#4bc0c0',
+                    pointBorderColor: '#fff', pointBorderWidth: 2, borderDash: [5, 5],
+                });
+            }
+            chart = new Chart(ctx, {
+                type: 'line', data: { labels: zones, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { font: { size: 14, weight: 'bold' } } },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)', padding: 12, titleFont: { size: 14 }, bodyFont: { size: 13 },
+                            callbacks: { label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)}°C` }
+                        }
+                    },
+                    scales: {
+                        y: { title: { display: true, text: 'Temperature (°C)', font: { size: 14, weight: 'bold' } }, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+                        x: { title: { display: true, text: 'Heating Zones', font: { size: 14, weight: 'bold' } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

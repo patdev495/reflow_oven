@@ -1,0 +1,6 @@
+main:
+  endpoint_url: /reflow_predict
+  response_key: predicted_temperatures
+  api_port: 4446
+  prediction_delay: 1
+  model_dir: models\model_old
