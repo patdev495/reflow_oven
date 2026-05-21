@@ -57,12 +57,12 @@ Dự án được cấu trúc gọn nhẹ, hỗ trợ triển khai linh hoạt (
 
 ```mermaid
 graph LR
-    subgraph Frontend (HTML5 / JS Client)
+    subgraph "Frontend (HTML5 / JS Client)"
         UI[index.html - Giao diện Nhập liệu & Đồ thị]
         Chart[Chart.js - Trực quan hóa Đường cong Nhiệt]
     end
 
-    subgraph Backend API (FastAPI Server)
+    subgraph "Backend API (FastAPI Server)"
         API[main_api_selfhost.py]
         Engine[Predict Engine]
         Model[(XGBoost Model: xgb_model.pkl)]
